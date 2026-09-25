@@ -1,4 +1,4 @@
-"""HTTP 服务：静态页面 + 空鼓反演 JSON API（仅依赖标准库）。
+"""HTTP 服务：静态页面 + 空鼓反演/修补规划 JSON API（仅依赖标准库）。
 
 环境变量：
   HOST  监听地址，默认 0.0.0.0
@@ -14,6 +14,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, Dict, List, Tuple
 from urllib.parse import urlparse
 
+from .planner import plan_patches
 from .solver import Rect, solve
 
 STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
@@ -104,16 +105,53 @@ def validate_payload(data: Any) -> Tuple[Dict[str, Any] | None, List[str]]:
     return {"rows": rows, "cols": cols, "rects": rects}, []
 
 
-def run_solver(data: Dict[str, Any]) -> Dict[str, Any]:
-    rows = data["rows"]
-    cols = data["cols"]
+def _solve_from_records(data: Dict[str, Any]):
+    """由检测记录重新联合反演；供判定与修补规划共用。"""
     rects = [
         Rect(d["r1"] - 1, d["c1"] - 1, d["r2"] - 1, d["c2"] - 1, d["count"])
         for d in data["rects"]
     ]
-    result = solve(rows, cols, rects)
+    return solve(data["rows"], data["cols"], rects)
+
+
+def run_solver(data: Dict[str, Any]) -> Dict[str, Any]:
+    result = _solve_from_records(data)
     if result is None:
         return {"status": "unsat"}
+    return {
+        "status": "ok",
+        "rows": data["rows"],
+        "cols": data["cols"],
+        "grid": result.grid,
+        "total": result.total,
+        "actual_counts": result.actual_counts,
+        "consistent": True,
+    }
+
+
+def run_planner(data: Dict[str, Any]) -> Dict[str, Any]:
+    """最小切缝修补规划。
+
+    空鼓结论必须由服务端依据当前全部检测记录重新求得，不接受客户端
+    上传的网格；记录无解时返回 unsat，由前端清除旧规划。
+    """
+    result = _solve_from_records(data)
+    if result is None:
+        return {"status": "unsat"}
+    rows = data["rows"]
+    cols = data["cols"]
+    plan = plan_patches(rows, cols, result.grid)
+    pieces = [
+        {
+            "r1": p.r1 + 1,
+            "c1": p.c1 + 1,
+            "r2": p.r2 + 1,
+            "c2": p.c2 + 1,
+            "cells": p.cells,
+            "perimeter": p.perimeter,
+        }
+        for p in plan.patches
+    ]
     return {
         "status": "ok",
         "rows": rows,
@@ -122,6 +160,11 @@ def run_solver(data: Dict[str, Any]) -> Dict[str, Any]:
         "total": result.total,
         "actual_counts": result.actual_counts,
         "consistent": True,
+        "plan": {
+            "piece_count": len(pieces),
+            "total_perimeter": plan.total_perimeter,
+            "pieces": pieces,
+        },
     }
 
 
@@ -164,7 +207,8 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_POST(self) -> None:  # noqa: N802
-        if urlparse(self.path).path != "/api/solve":
+        path = urlparse(self.path).path
+        if path not in ("/api/solve", "/api/plan"):
             self._send_json(HTTPStatus.NOT_FOUND, {"status": "error", "message": "not found"})
             return
         length = int(self.headers.get("Content-Length") or 0)
@@ -187,7 +231,10 @@ class Handler(BaseHTTPRequestHandler):
         if normalized is None:
             self._send_json(HTTPStatus.BAD_REQUEST, {"status": "rejected", "errors": errors})
             return
-        self._send_json(HTTPStatus.OK, run_solver(normalized))
+        if path == "/api/plan":
+            self._send_json(HTTPStatus.OK, run_planner(normalized))
+        else:
+            self._send_json(HTTPStatus.OK, run_solver(normalized))
 
 
 def main() -> None:

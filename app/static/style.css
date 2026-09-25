@@ -130,6 +130,7 @@ input[type="number"] {
 .brick {
   width: 64px;
   height: 52px;
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -153,3 +154,31 @@ input[type="number"] {
 .count-list li { margin-bottom: .35rem; font-size: .9rem; }
 .match { color: #34591f; font-weight: 700; }
 .coords { color: #5e5343; }
+
+/* 修补片角标与列表 */
+.patch-badge {
+  position: absolute;
+  top: 2px;
+  left: 3px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: .62rem;
+  font-weight: 700;
+  line-height: 1;
+}
+.patch-list { margin: .3rem 0 0; padding-left: 1.3rem; }
+.patch-list li { margin-bottom: .35rem; font-size: .9rem; }
+.chip {
+  display: inline-block;
+  width: .85em;
+  height: .85em;
+  margin-right: .35rem;
+  border-radius: 3px;
+  vertical-align: -0.08em;
+}

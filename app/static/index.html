@@ -47,7 +47,7 @@
       </div>
 
       <div id="result-stale" class="banner banner-warn" hidden>
-        输入已修改，此前的判定结论已失效，请重新提交。
+        输入已修改，此前的判定结论与修补规划已失效，请重新提交。
       </div>
 
       <div id="result-error" hidden>
@@ -68,6 +68,21 @@
 
         <h3>各检测区域实际计数</h3>
         <ol id="count-list" class="count-list"></ol>
+
+        <h3>最小切缝修补规划</h3>
+        <p class="hint">
+          把空鼓砖组织为轴对齐矩形修补片：每片只含空鼓砖、恰好划分全部空鼓砖；
+          片数最少、各片四周切缝长度之和最短。规划由服务端依据当前全部检测记录
+          重新反演生成，不上传页面网格。
+        </p>
+        <div class="actions">
+          <button type="button" id="plan-btn" class="btn btn-primary">发起最小切缝修补规划</button>
+        </div>
+        <div id="plan-error" class="banner banner-bad" role="alert" hidden></div>
+        <div id="plan-result" hidden>
+          <div class="banner banner-ok" id="plan-summary"></div>
+          <ol id="patch-list" class="patch-list"></ol>
+        </div>
       </div>
     </section>
   </main>

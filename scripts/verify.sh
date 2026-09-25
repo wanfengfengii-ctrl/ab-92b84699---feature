@@ -90,6 +90,64 @@ status, body = request("POST", "/api/solve", bad_payload)
 assert status == 400 and body["status"] == "rejected" and body["errors"], (status, body)
 print("  /api/solve 非法输入正确拒绝 (400)")
 
+
+def check_plan(body):
+    """校验规划：每片只含空鼓砖、不重叠、并集恰为空鼓集、合计一致。"""
+    grid, rows, cols = body["grid"], body["rows"], body["cols"]
+    plan = body["plan"]
+    pieces = plan["pieces"]
+    assert plan["piece_count"] == len(pieces), plan
+    seen = set()
+    total_perim = 0
+    keys = []
+    for p in pieces:
+        assert 1 <= p["r1"] <= p["r2"] <= rows, p
+        assert 1 <= p["c1"] <= p["c2"] <= cols, p
+        assert p["cells"] == (p["r2"] - p["r1"] + 1) * (p["c2"] - p["c1"] + 1), p
+        assert p["perimeter"] == 2 * ((p["r2"] - p["r1"] + 1) + (p["c2"] - p["c1"] + 1)), p
+        total_perim += p["perimeter"]
+        keys.append((p["r1"], p["c1"], p["r2"], p["c2"]))
+        for r in range(p["r1"], p["r2"] + 1):
+            for c in range(p["c1"], p["c2"] + 1):
+                assert grid[r - 1][c - 1] == 1, ("修补片覆盖完好砖", p)
+                assert (r, c) not in seen, ("修补片重叠", p)
+                seen.add((r, c))
+    hollows = {
+        (r + 1, c + 1)
+        for r in range(rows)
+        for c in range(cols)
+        if grid[r][c] == 1
+    }
+    assert seen == hollows, ("修补片未恰好覆盖全部空鼓砖", plan)
+    assert plan["total_perimeter"] == total_perim, plan
+    assert keys == sorted(keys), ("修补片未按坐标升序", plan)
+
+
+status, body = request("POST", "/api/plan", ok_payload)
+assert status == 200 and body["status"] == "ok" and "plan" in body, (status, body)
+check_plan(body)
+first_plan = body["plan"]
+print(
+    f"  /api/plan 可行用例 OK（{first_plan['piece_count']} 片，"
+    f"切缝合计 {first_plan['total_perimeter']}）"
+)
+
+# 同一检测记录重复请求，规划结果必须一致（可重复核对）。
+status, body2 = request("POST", "/api/plan", ok_payload)
+assert status == 200 and body2["status"] == "ok" and body2["plan"] == first_plan, (
+    status,
+    body2,
+)
+print("  /api/plan 重复请求结果一致")
+
+status, body = request("POST", "/api/plan", unsat_payload)
+assert status == 200 and body["status"] == "unsat" and "plan" not in body, (status, body)
+print("  /api/plan 无禁用例正确返回 unsat")
+
+status, body = request("POST", "/api/plan", bad_payload)
+assert status == 400 and body["status"] == "rejected" and body["errors"], (status, body)
+print("  /api/plan 非法输入正确拒绝 (400)")
+
 print("  全部 HTTP/API 冒烟通过")
 PY
 
