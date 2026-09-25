@@ -153,3 +153,33 @@ input[type="number"] {
 .count-list li { margin-bottom: .35rem; font-size: .9rem; }
 .match { color: #34591f; font-weight: 700; }
 .coords { color: #5e5343; }
+
+/* ---- 修补规划 ---- */
+.plan-head { display: flex; align-items: center; justify-content: space-between; margin-top: 1.2rem; }
+.plan-head h3 { margin: 0; }
+
+.grid-overlay { position: relative; width: max-content; max-width: 100%; margin: .4rem 0 .2rem; }
+.grid-overlay .brick-grid { margin: 0; }
+.patch-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.patch-overlay rect { pointer-events: auto; }
+
+.table-wrap { overflow-x: auto; }
+.patch-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: .88rem;
+  background: #fff;
+}
+.patch-table th, .patch-table td {
+  border: 1px solid #e0d8c6;
+  padding: .4rem .6rem;
+  text-align: center;
+}
+.patch-table thead th { background: #f1e9d8; color: #5e4a30; }
+.patch-table tfoot td { font-weight: 700; background: #f7f2e8; }
+.plan-empty { color: #7d7260; background: #faf7f0 !important; font-weight: 400 !important; }
+#plan-fail { white-space: pre-line; margin-top: .6rem; }

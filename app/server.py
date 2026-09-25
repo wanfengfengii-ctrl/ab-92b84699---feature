@@ -14,6 +14,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, Dict, List, Tuple
 from urllib.parse import urlparse
 
+from .planner import plan_repairs
 from .solver import Rect, solve
 
 STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
@@ -125,6 +126,37 @@ def run_solver(data: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def run_planner(data: Dict[str, Any]) -> Dict[str, Any]:
+    """切缝修补规划：由服务端用当前全部检测记录重新反演空鼓结论。
+
+    不接受客户端上传的空鼓网格；原记录无解时明确告知无法生成规划。
+    """
+
+    conclusion = run_solver(data)
+    if conclusion.get("status") != "ok":
+        # status == "unsat"：旧规划应由调用方清除。
+        conclusion["plan"] = None
+        conclusion["message"] = "原检测记录无解，无法生成最小切缝修补规划。"
+        return conclusion
+    plan = plan_repairs(conclusion["grid"])
+    conclusion["plan"] = {
+        "pieces": [
+            {
+                "r1": p.r1,
+                "c1": p.c1,
+                "r2": p.r2,
+                "c2": p.c2,
+                "cells": p.cells,
+                "cut_length": p.cut_length,
+            }
+            for p in plan.pieces
+        ],
+        "piece_count": plan.piece_count,
+        "total_cut_length": plan.total_cut_length,
+    }
+    return conclusion
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = "VoidDrum/1.0"
 
@@ -164,7 +196,8 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_POST(self) -> None:  # noqa: N802
-        if urlparse(self.path).path != "/api/solve":
+        path = urlparse(self.path).path
+        if path not in ("/api/solve", "/api/plan"):
             self._send_json(HTTPStatus.NOT_FOUND, {"status": "error", "message": "not found"})
             return
         length = int(self.headers.get("Content-Length") or 0)
@@ -187,7 +220,15 @@ class Handler(BaseHTTPRequestHandler):
         if normalized is None:
             self._send_json(HTTPStatus.BAD_REQUEST, {"status": "rejected", "errors": errors})
             return
-        self._send_json(HTTPStatus.OK, run_solver(normalized))
+        # 规划必须由服务端基于全部原始检测记录重新反演，不接受客户端上传网格。
+        if path == "/api/plan" and "grid" in data:
+            self._send_json(
+                HTTPStatus.BAD_REQUEST,
+                {"status": "rejected", "errors": ["不接受客户端上传空鼓网格，请提交原始检测记录"]},
+            )
+            return
+        runner = run_planner if path == "/api/plan" else run_solver
+        self._send_json(HTTPStatus.OK, runner(normalized))
 
 
 def main() -> None:

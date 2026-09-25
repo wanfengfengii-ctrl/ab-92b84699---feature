@@ -47,7 +47,7 @@
       </div>
 
       <div id="result-stale" class="banner banner-warn" hidden>
-        输入已修改，此前的判定结论已失效，请重新提交。
+        检测资料已修改，此前的判定结论与修补规划均已失效，请重新提交。
       </div>
 
       <div id="result-error" hidden>
@@ -63,11 +63,48 @@
           获选方案空鼓总数 <strong id="total-hollow">0</strong>（同总数方案中取行列展开字典序最小者）。
         </div>
         <h3>空鼓砖分布</h3>
-        <div id="brick-grid" class="brick-grid" aria-describedby="legend"></div>
+        <div class="grid-overlay">
+          <div id="brick-grid" class="brick-grid" aria-describedby="legend"></div>
+          <svg id="patch-overlay" class="patch-overlay" aria-hidden="true"></svg>
+        </div>
         <p id="legend" class="hint">■ 空鼓砖　□ 完好砖；格内数字为“行,列”。</p>
 
         <h3>各检测区域实际计数</h3>
         <ol id="count-list" class="count-list"></ol>
+
+        <div class="plan-head">
+          <h3>最小切缝修补规划</h3>
+          <button type="button" id="plan-btn" class="btn btn-ghost">发起修补规划</button>
+        </div>
+        <p class="hint">由服务端依据当前全部检测记录重新反演空鼓结论后计算；检测资料一旦修改，既有规划立即失效。</p>
+
+        <div id="plan-placeholder" class="placeholder">
+          尚未发起规划。点击“发起修补规划”，把空鼓砖组织为片数最少、切缝总长最短的轴对齐矩形修补片。
+        </div>
+        <div id="plan-fail" class="banner banner-bad" role="alert" hidden></div>
+
+        <div id="plan-result" hidden>
+          <div class="banner banner-ok">
+            共 <strong id="plan-piece-count">0</strong> 片修补片，
+            四周切缝长度合计 <strong id="plan-total-cut">0</strong>（每片只覆盖空鼓砖，片间不重叠）。
+          </div>
+          <div class="table-wrap">
+            <table class="patch-table">
+              <thead>
+                <tr><th>片号</th><th>左上 (行,列)</th><th>右下 (行,列)</th><th>覆盖砖数</th><th>单片切缝长度</th></tr>
+              </thead>
+              <tbody id="patch-rows"></tbody>
+              <tfoot>
+                <tr>
+                  <td colspan="3">合计</td>
+                  <td id="patch-total-cells">0</td>
+                  <td id="patch-total-cut">0</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+          <p class="hint">同色描边即同一修补片边界；共边的修补片各自切缝，长度均计入合计。</p>
+        </div>
       </div>
     </section>
   </main>

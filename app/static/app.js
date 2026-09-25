@@ -7,6 +7,9 @@ let records = [
   { r1: 3, c1: 3, r2: 4, c2: 4, count: 1 },
 ];
 
+// 最近一次成功提交、与页面结论一致的请求载荷；规划只能基于它重新发起。
+let activePayload = null;
+
 const $ = (id) => document.getElementById(id);
 const rowsInput = $("rows");
 const colsInput = $("cols");
@@ -21,13 +24,42 @@ const resultError = $("result-error");
 const resultOk = $("result-ok");
 const errorText = $("error-text");
 
-// ---- 旧结论清除 ----
+const planBtn = $("plan-btn");
+const planPlaceholder = $("plan-placeholder");
+const planFail = $("plan-fail");
+const planResult = $("plan-result");
+const patchRows = $("patch-rows");
+const patchOverlay = $("patch-overlay");
+
+// 网格几何，须与 style.css / 内联网格样式保持一致。
+const CELL_W = 64;
+const CELL_H = 52;
+const CELL_GAP = 5;
+const PATCH_COLORS = ["#1f6f5c", "#2b5aa0", "#b05a00", "#7a2f8f", "#9a2f4e", "#0f7a7a", "#5a6b12", "#8a4a1f"];
+
+// ---- 旧结论与旧规划清除 ----
+function clearPlan(opts = {}) {
+  planResult.hidden = true;
+  planFail.hidden = true;
+  planPlaceholder.hidden = true;
+  planBtn.disabled = false;
+  patchOverlay.innerHTML = "";
+  if (opts.planFail) {
+    planFail.textContent = opts.planFail;
+    planFail.hidden = false;
+  } else {
+    planPlaceholder.hidden = false;
+  }
+}
+
 function clearConclusion(opts = {}) {
   resultOk.hidden = true;
   resultError.hidden = true;
   formError.hidden = true;
   placeholder.hidden = true;
   staleBanner.hidden = true;
+  activePayload = null;
+  clearPlan();
   if (opts.stale) {
     staleBanner.hidden = false;
   } else if (opts.error) {
@@ -38,7 +70,7 @@ function clearConclusion(opts = {}) {
   }
 }
 
-// 任何输入修改都使旧结论立即失效。
+// 任何检测资料修改都使旧结论与既有规划立即失效。
 function markStale() {
   clearConclusion({ stale: true });
 }
@@ -133,10 +165,94 @@ addBtn.addEventListener("click", () => {
   })
 );
 
+// ---- 修补片边界叠加 ----
+function drawPatchOverlay(rows, cols, pieces) {
+  const width = cols * CELL_W + (cols - 1) * CELL_GAP;
+  const height = rows * CELL_H + (rows - 1) * CELL_GAP;
+  patchOverlay.innerHTML = "";
+  patchOverlay.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  patchOverlay.style.width = `${width}px`;
+  patchOverlay.style.height = `${height}px`;
+
+  pieces.forEach((p, i) => {
+    const x = (p.c1 - 1) * (CELL_W + CELL_GAP) + 2;
+    const y = (p.r1 - 1) * (CELL_H + CELL_GAP) + 2;
+    const w = (p.c2 - p.c1 + 1) * CELL_W + (p.c2 - p.c1) * CELL_GAP - 4;
+    const h = (p.r2 - p.r1 + 1) * CELL_H + (p.r2 - p.r1) * CELL_GAP - 4;
+    const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    rect.setAttribute("x", x);
+    rect.setAttribute("y", y);
+    rect.setAttribute("width", w);
+    rect.setAttribute("height", h);
+    rect.setAttribute("rx", "6");
+    rect.setAttribute("fill", "none");
+    rect.setAttribute("stroke", PATCH_COLORS[i % PATCH_COLORS.length]);
+    rect.setAttribute("stroke-width", "3");
+    const title = document.createElementNS("http://www.w3.org/2000/svg", "title");
+    title.textContent =
+      `第 ${i + 1} 片：行${p.r1}–${p.r2}、列${p.c1}–${p.c2}，` +
+      `${p.cells} 块空鼓砖，切缝长度 ${p.cut_length}`;
+    rect.appendChild(title);
+    patchOverlay.appendChild(rect);
+  });
+}
+
+// ---- 规划渲染 ----
+function renderPlan(rows, cols, plan) {
+  clearPlan();
+  if (!plan || plan.piece_count === 0) {
+    planResult.hidden = false;
+    planPlaceholder.hidden = true;
+    $("plan-piece-count").textContent = "0";
+    $("plan-total-cut").textContent = "0";
+    $("patch-total-cells").textContent = "0";
+    $("patch-total-cut").textContent = "0";
+    patchRows.innerHTML = "";
+    // 无空鼓砖：以提示替代空表。
+    const note = document.createElement("tr");
+    const td = document.createElement("td");
+    td.colSpan = 5;
+    td.className = "plan-empty";
+    td.textContent = "当前结论下没有空鼓砖，无需揭除修补。";
+    note.appendChild(td);
+    patchRows.appendChild(note);
+    return;
+  }
+
+  planResult.hidden = false;
+  planPlaceholder.hidden = true;
+  $("plan-piece-count").textContent = String(plan.piece_count);
+  $("plan-total-cut").textContent = String(plan.total_cut_length);
+
+  patchRows.innerHTML = "";
+  let totalCells = 0;
+  plan.pieces.forEach((p, i) => {
+    totalCells += p.cells;
+    const tr = document.createElement("tr");
+    const vals = [
+      String(i + 1),
+      `(${p.r1}, ${p.c1})`,
+      `(${p.r2}, ${p.c2})`,
+      String(p.cells),
+      String(p.cut_length),
+    ];
+    vals.forEach((v) => {
+      const td = document.createElement("td");
+      td.textContent = v;
+      tr.appendChild(td);
+    });
+    patchRows.appendChild(tr);
+  });
+  $("patch-total-cells").textContent = String(totalCells);
+  $("patch-total-cut").textContent = String(plan.total_cut_length);
+  drawPatchOverlay(rows, cols, plan.pieces);
+}
+
 // ---- 结果渲染 ----
-function renderConclusion(data, submittedRects) {
+function renderConclusion(data, submittedPayload) {
   clearConclusion();
   resultOk.hidden = false;
+  activePayload = submittedPayload;
 
   $("total-hollow").textContent = String(data.total);
 
@@ -156,7 +272,7 @@ function renderConclusion(data, submittedRects) {
   const list = $("count-list");
   list.innerHTML = "";
   data.actual_counts.forEach((actual, i) => {
-    const rec = submittedRects[i];
+    const rec = submittedPayload.rects[i];
     const li = document.createElement("li");
     const coords = document.createElement("span");
     coords.className = "coords";
@@ -232,7 +348,7 @@ submitBtn.addEventListener("click", async () => {
     }
 
     if (resp.ok && data && data.status === "ok") {
-      renderConclusion(data, payloadRects);
+      renderConclusion(data, { rows, cols, rects: payloadRects });
       return;
     }
     if (resp.ok && data && data.status === "unsat") {
@@ -257,6 +373,52 @@ submitBtn.addEventListener("click", async () => {
     });
   } finally {
     submitBtn.disabled = false;
+  }
+});
+
+// ---- 最小切缝修补规划 ----
+planBtn.addEventListener("click", async () => {
+  if (!activePayload) return;  // 结论已失效，按钮所在区域本应不可见。
+  planBtn.disabled = true;
+  clearPlan();
+  planPlaceholder.hidden = true;
+  try {
+    const resp = await fetch("/api/plan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(activePayload),  // 仅原始检测记录，网格由服务端反演。
+    });
+    let data = null;
+    try {
+      data = await resp.json();
+    } catch (_e) {
+      data = null;
+    }
+
+    if (resp.ok && data && data.status === "ok" && data.plan) {
+      renderPlan(data.rows, data.cols, data.plan);
+      return;
+    }
+    if (resp.ok && data && data.status === "unsat") {
+      // 服务端重新反演失败：清除旧规划并明确说明。
+      clearPlan({
+        planFail:
+          "服务端依据当前全部检测记录重新反演时判定无解（无法满足全部记录），" +
+          "无法生成最小切缝修补规划，既有规划已清除。请核对检测记录后重新提交。",
+      });
+      return;
+    }
+    const detail =
+      data && Array.isArray(data.errors) && data.errors.length > 0
+        ? data.errors.map((e) => "· " + e).join("\n")
+        : "服务端未能处理该请求。";
+    clearPlan({ planFail: "服务端拒绝了规划请求，无法生成修补规划：\n" + detail });
+  } catch (e) {
+    clearPlan({
+      planFail: "无法连接反演服务，本次未生成修补规划，既有规划不再显示。请确认服务可用后重试。",
+    });
+  } finally {
+    planBtn.disabled = false;
   }
 });
 

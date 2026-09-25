@@ -90,6 +90,48 @@ status, body = request("POST", "/api/solve", bad_payload)
 assert status == 400 and body["status"] == "rejected" and body["errors"], (status, body)
 print("  /api/solve 非法输入正确拒绝 (400)")
 
+# ---- 最小切缝修补规划：必须由服务端按原始记录重新反演 ----
+status, body = request("POST", "/api/plan", ok_payload)
+assert status == 200 and body["status"] == "ok" and body.get("plan"), (status, body)
+plan = body["plan"]
+hollow_cells = [
+    (r, c)
+    for r, row in enumerate(body["grid"])
+    for c, v in enumerate(row)
+    if v == 1
+]
+assert plan["piece_count"] == len(plan["pieces"]) == len(hollow_cells) >= 1, plan
+covered = []
+for p in plan["pieces"]:
+    assert p["cells"] == (p["r2"] - p["r1"] + 1) * (p["c2"] - p["c1"] + 1), p
+    assert p["cut_length"] == 2 * (
+        (p["r2"] - p["r1"] + 1) + (p["c2"] - p["c1"] + 1)
+    ), p
+    for r in range(p["r1"] - 1, p["r2"]):
+        for c in range(p["c1"] - 1, p["c2"]):
+            assert body["grid"][r][c] == 1, "修补片混入完好砖"
+            covered.append((r, c))
+assert sorted(covered) == sorted(hollow_cells), "空鼓砖未被恰好归入一片"
+assert sum(p["cells"] for p in plan["pieces"]) == body["total"]
+assert plan["total_cut_length"] == sum(p["cut_length"] for p in plan["pieces"])
+print(
+    f"  /api/plan 可行用例 OK（{plan['piece_count']} 片，切缝合计 {plan['total_cut_length']}）"
+)
+
+# 原记录无解：不得返回规划，须明确说明无法生成。
+status, body = request("POST", "/api/plan", unsat_payload)
+assert status == 200 and body["status"] == "unsat", (status, body)
+assert body.get("plan") is None and body.get("message"), body
+print("  /api/plan 无禁用例返回 unsat 且明确无法生成")
+
+# 拒绝客户端上传网格；非法记录同样 400。
+forged = dict(ok_payload, grid=[[1] * 4 for _ in range(4)])
+status, body = request("POST", "/api/plan", forged)
+assert status == 400 and body["status"] == "rejected" and body["errors"], (status, body)
+status, body = request("POST", "/api/plan", bad_payload)
+assert status == 400 and body["status"] == "rejected", (status, body)
+print("  /api/plan 拒绝客户端网格与非法输入 (400)")
+
 print("  全部 HTTP/API 冒烟通过")
 PY
 

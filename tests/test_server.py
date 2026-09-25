@@ -155,6 +155,96 @@ class HttpSmokeTests(unittest.TestCase):
             data = json.loads(resp.read().decode("utf-8"))
             self.assertEqual(data["status"], "rejected")
 
+    def test_plan_ok_rederived_from_records(self) -> None:
+        with ServerHarness() as srv:
+            payload = {
+                "rows": 4,
+                "cols": 4,
+                "rects": [
+                    {"r1": 1, "c1": 1, "r2": 2, "c2": 2, "count": 1},
+                    {"r1": 2, "c1": 2, "r2": 3, "c2": 3, "count": 0},
+                    {"r1": 3, "c1": 3, "r2": 4, "c2": 4, "count": 1},
+                ],
+            }
+            status, data = srv.post("/api/plan", payload)
+            self.assertEqual(status, 200)
+            self.assertEqual(data["status"], "ok")
+            # 规划由服务端重新反演得出，结论部分与 /api/solve 一致。
+            self.assertEqual(data["actual_counts"], [1, 0, 1])
+            plan = data["plan"]
+            self.assertIsNotNone(plan)
+            self.assertEqual(plan["piece_count"], len(plan["pieces"]))
+            # 两块不相邻空鼓砖 -> 2 个 1×1 片，每片切缝 4，合计 8。
+            flat = [v for row in data["grid"] for v in row]
+            hollow = [
+                (r, c)
+                for r, row in enumerate(data["grid"])
+                for c, v in enumerate(row)
+                if v == 1
+            ]
+            self.assertEqual(len(hollow), plan["piece_count"])
+            self.assertEqual(plan["total_cut_length"], 4 * len(hollow))
+            covered = []
+            for p in plan["pieces"]:
+                self.assertEqual(p["cut_length"], 2 * ((p["r2"] - p["r1"] + 1) + (p["c2"] - p["c1"] + 1)))
+                self.assertEqual(p["cells"], (p["r2"] - p["r1"] + 1) * (p["c2"] - p["c1"] + 1))
+                for r in range(p["r1"] - 1, p["r2"]):
+                    for c in range(p["c1"] - 1, p["c2"]):
+                        self.assertEqual(data["grid"][r][c], 1)  # 只覆盖空鼓砖
+                        covered.append((r, c))
+            self.assertEqual(sorted(covered), sorted(hollow))  # 恰好覆盖全部空鼓砖
+            self.assertEqual(sum(flat), sum(p["cells"] for p in plan["pieces"]))
+
+    def test_plan_does_not_trust_client_grid(self) -> None:
+        with ServerHarness() as srv:
+            payload = {
+                "rows": 4,
+                "cols": 4,
+                "rects": [
+                    {"r1": 1, "c1": 1, "r2": 4, "c2": 4, "count": 0},
+                    {"r1": 1, "c1": 1, "r2": 2, "c2": 2, "count": 0},
+                    {"r1": 3, "c1": 3, "r2": 4, "c2": 4, "count": 0},
+                ],
+            }
+            # 携带伪造网格字段：必须被拒绝。
+            forged = dict(payload, grid=[[1] * 4 for _ in range(4)])
+            status, data = srv.post("/api/plan", forged)
+            self.assertEqual(status, 400)
+            self.assertEqual(data["status"], "rejected")
+            self.assertTrue(data["errors"])
+            # 不带网格时正常按记录反演：全完好 -> 空规划。
+            status, data = srv.post("/api/plan", payload)
+            self.assertEqual(status, 200)
+            self.assertEqual(data["status"], "ok")
+            self.assertEqual(data["total"], 0)
+            self.assertEqual(data["plan"]["pieces"], [])
+            self.assertEqual(data["plan"]["piece_count"], 0)
+            self.assertEqual(data["plan"]["total_cut_length"], 0)
+
+    def test_plan_unsat_clears_with_message(self) -> None:
+        with ServerHarness() as srv:
+            payload = {
+                "rows": 4,
+                "cols": 4,
+                "rects": [
+                    {"r1": 1, "c1": 1, "r2": 4, "c2": 4, "count": 1},
+                    {"r1": 1, "c1": 1, "r2": 1, "c2": 4, "count": 4},
+                    {"r1": 1, "c1": 1, "r2": 2, "c2": 2, "count": 1},
+                ],
+            }
+            status, data = srv.post("/api/plan", payload)
+            self.assertEqual(status, 200)
+            self.assertEqual(data["status"], "unsat")
+            self.assertIsNone(data["plan"])
+            self.assertIn("无法", data["message"])
+
+    def test_plan_rejects_invalid_payload(self) -> None:
+        with ServerHarness() as srv:
+            status, data = srv.post("/api/plan", {"rows": 4, "cols": 4, "rects": []})
+            self.assertEqual(status, 400)
+            self.assertEqual(data["status"], "rejected")
+            self.assertTrue(data["errors"])
+
 
 if __name__ == "__main__":
     unittest.main()
