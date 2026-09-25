@@ -1,0 +1,155 @@
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC",
+    system-ui, -apple-system, sans-serif;
+  background: #f4f1ea;
+  color: #2b2620;
+  line-height: 1.55;
+}
+
+.topbar {
+  background: #6b4f34;
+  color: #f7f1e6;
+  padding: 1.25rem 1.5rem;
+}
+.topbar h1 { margin: 0; font-size: 1.3rem; }
+.subtitle { margin: .25rem 0 0; opacity: .85; font-size: .9rem; }
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(320px, 460px) 1fr;
+  gap: 1.25rem;
+  padding: 1.25rem;
+  max-width: 1180px;
+  margin: 0 auto;
+}
+@media (max-width: 860px) { .layout { grid-template-columns: 1fr; } }
+
+.card {
+  background: #fffdf8;
+  border: 1px solid #e3dccf;
+  border-radius: 10px;
+  padding: 1.1rem 1.2rem;
+  box-shadow: 0 1px 3px rgba(90, 70, 40, .08);
+}
+h2 { margin-top: 0; font-size: 1.1rem; }
+h3 { font-size: .98rem; margin: 1rem 0 .5rem; }
+
+.grid-size { display: flex; gap: 1rem; }
+.grid-size label { display: flex; align-items: center; gap: .4rem; font-size: .92rem; }
+input[type="number"] {
+  width: 72px;
+  padding: .35rem .45rem;
+  border: 1px solid #c9bfa9;
+  border-radius: 6px;
+  font: inherit;
+  background: #fff;
+}
+.count-input { width: 88px !important; }
+
+.records-head { display: flex; align-items: center; justify-content: space-between; }
+.records { list-style: none; margin: 0; padding: 0; }
+.record {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .35rem;
+  padding: .5rem .6rem;
+  margin-bottom: .5rem;
+  background: #f7f2e8;
+  border: 1px solid #e3dccf;
+  border-radius: 8px;
+  font-size: .88rem;
+}
+.record .idx { font-weight: 700; min-width: 2.2em; color: #6b4f34; }
+.record input { width: 58px; }
+.record .sep { color: #8a7d66; }
+.record label { display: inline-flex; align-items: center; gap: .25rem; }
+.record .del {
+  margin-left: auto;
+  border: none;
+  background: transparent;
+  color: #a3533f;
+  cursor: pointer;
+  font-size: 1rem;
+  padding: .15rem .45rem;
+  border-radius: 5px;
+}
+.record .del:hover { background: #f0ddd6; }
+
+.btn {
+  font: inherit;
+  border-radius: 7px;
+  padding: .45rem 1rem;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+.btn-primary { background: #8a5a33; color: #fff8ee; }
+.btn-primary:hover { background: #774d2b; }
+.btn-ghost { background: transparent; border-color: #b9a584; color: #6b4f34; font-size: .85rem; padding: .3rem .7rem; }
+.btn-ghost:hover { background: #efe7d6; }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.actions { margin-top: .8rem; }
+
+.hint { font-size: .82rem; color: #7d7260; margin: .3rem 0 .6rem; }
+.form-error {
+  margin-top: .7rem;
+  padding: .6rem .8rem;
+  border-radius: 7px;
+  background: #f8e6e0;
+  border: 1px solid #dcae9f;
+  color: #7a3525;
+  font-size: .86rem;
+  white-space: pre-line;
+}
+
+.placeholder {
+  border: 1px dashed #c9bfa9;
+  border-radius: 8px;
+  padding: 1.4rem 1rem;
+  text-align: center;
+  color: #8d8270;
+  font-size: .9rem;
+  background: #faf7f0;
+}
+
+.banner { border-radius: 8px; padding: .7rem .9rem; margin-bottom: .9rem; font-size: .9rem; }
+.banner-ok { background: #e8f1e4; border: 1px solid #b6cfa6; color: #34591f; }
+.banner-bad { background: #f8e6e0; border: 1px solid #dcae9f; color: #7a3525; }
+.banner-warn { background: #faf0d9; border: 1px solid #dfc27e; color: #6f5416; }
+
+.brick-grid {
+  display: grid;
+  gap: 5px;
+  margin: .4rem 0 .2rem;
+  width: max-content;
+  max-width: 100%;
+}
+.brick {
+  width: 64px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #b7a483;
+  border-radius: 6px;
+  background: repeating-linear-gradient(
+    45deg, #fbf6ea, #fbf6ea 6px, #f2e9d7 6px, #f2e9d7 12px
+  );
+  font-size: .78rem;
+  color: #998b72;
+  user-select: none;
+}
+.brick.hollow {
+  background: #a3533f;
+  border-color: #7a3525;
+  color: #ffe9dd;
+  font-weight: 700;
+}
+
+.count-list { margin: .3rem 0 0; padding-left: 1.3rem; }
+.count-list li { margin-bottom: .35rem; font-size: .9rem; }
+.match { color: #34591f; font-weight: 700; }
+.coords { color: #5e5343; }

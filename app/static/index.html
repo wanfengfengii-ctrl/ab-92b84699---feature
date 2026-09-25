@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>饰砖空鼓联合反演</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>古建筑墙面饰砖 · 空鼓敲击反演</h1>
+    <p class="subtitle">有限次矩形敲击抽检，联合判定每块砖空鼓或完好</p>
+  </header>
+
+  <main class="layout">
+    <section class="card" aria-labelledby="form-title">
+      <h2 id="form-title">检测录入</h2>
+
+      <div class="grid-size">
+        <label>行数
+          <input type="number" id="rows" min="4" max="5" step="1" value="4" />
+        </label>
+        <label>列数
+          <input type="number" id="cols" min="4" max="5" step="1" value="4" />
+        </label>
+      </div>
+      <p class="hint">网格为 4–5 行 × 4–5 列；行列坐标从 1 开始，矩形区域含两端。</p>
+
+      <div class="records-head">
+        <h3>矩形检测记录</h3>
+        <button type="button" id="add-btn" class="btn btn-ghost">＋ 增加检测</button>
+      </div>
+      <p class="hint">每次记录矩形区域（左上–右下行列号）及其中听到空鼓砖的整数数量，共 3–12 次。</p>
+      <ol id="records" class="records"></ol>
+
+      <div class="actions">
+        <button type="button" id="submit-btn" class="btn btn-primary">提交联合判定</button>
+      </div>
+      <div id="form-error" class="form-error" role="alert" hidden></div>
+    </section>
+
+    <section class="card" aria-labelledby="result-title">
+      <h2 id="result-title">判定结论</h2>
+
+      <div id="result-placeholder" class="placeholder">
+        尚未提交。录入 3–12 条检测记录后点击“提交联合判定”。
+      </div>
+
+      <div id="result-stale" class="banner banner-warn" hidden>
+        输入已修改，此前的判定结论已失效，请重新提交。
+      </div>
+
+      <div id="result-error" hidden>
+        <div class="banner banner-bad" role="alert">
+          <strong>无法满足全部记录。</strong>
+          <span id="error-text"></span>
+        </div>
+      </div>
+
+      <div id="result-ok" hidden>
+        <div class="banner banner-ok">
+          <strong>一致性结论：所有检测记录均精确满足。</strong>
+          获选方案空鼓总数 <strong id="total-hollow">0</strong>（同总数方案中取行列展开字典序最小者）。
+        </div>
+        <h3>空鼓砖分布</h3>
+        <div id="brick-grid" class="brick-grid" aria-describedby="legend"></div>
+        <p id="legend" class="hint">■ 空鼓砖　□ 完好砖；格内数字为“行,列”。</p>
+
+        <h3>各检测区域实际计数</h3>
+        <ol id="count-list" class="count-list"></ol>
+      </div>
+    </section>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,31 @@
+services:
+  web:
+    build: .
+    image: voiddrum-app:latest
+    environment:
+      # 容器内固定监听 8000；宿主机端口由 HOST_PORT 配置。
+      PORT: "8000"
+    ports:
+      # 宿主机端口可配置：HOST_PORT=9090 docker compose up -d web
+      - "${HOST_PORT:-8080}:8000"
+    # Compose 层显式健康检查（与 Dockerfile 的 HEALTHCHECK 等价），
+    # verify 服务通过 service_healthy 条件等待其就绪。
+    healthcheck:
+      test: ["CMD", "python3", "scripts/healthcheck.py"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+
+  verify:
+    # 与 web 使用同一镜像；验收完成后自行退出，退出码即验收结论。
+    image: voiddrum-app:latest
+    build: .
+    depends_on:
+      web:
+        condition: service_healthy
+    environment:
+      BASE_URL: http://web:8000
+    command: ["scripts/verify.sh"]
+    restart: "no"
